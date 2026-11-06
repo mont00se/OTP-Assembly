@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<!--
+  Over The Top Packer (OTP): Interactive Stabbing & Pack-Off Simulator
+  Concept & 3D simulation: ABHISHEK MEWAR, AEE (Production)
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="author" content="Abhishek Mewar, AEE (Production)">
+<title>OTP 3D Simulator: Stabbing &amp; Pack-Off | Abhishek Mewar</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
+<style>
+  :root {
+    --bg: #070a12;
+    --surface-1: #0c111c;
+    --surface-2: #111827;
+    --surface-3: #172033;
+    --line: #1f2a3d;
+    --line-strong: #2c3a52;
+    --ink-1: #f1f5f9;
+    --ink-2: #b6c2d4;
+    --ink-3: #7c8aa1;
+    --accent: #f97316;
+    --accent-soft: rgba(249, 115, 22, .14);
+    --good: #34d399;
+    --warn: #fbbf24;
+    --info: #38bdf8;
+    --radius: 14px;
+    --radius-sm: 8px;
+    --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 12px 32px -12px rgba(0,0,0,.6);
+    --ease: cubic-bezier(.22, 1, .36, 1);
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink-1); font: 13px/1.45 var(--sans); -webkit-font-smoothing: antialiased; }
+  body { min-height: 100vh; display: flex; flex-direction: column; background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(249,115,22,.06), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(56,189,248,.05), transparent 60%), var(--bg); }
+  ::selection { background: var(--accent); color: #fff; }
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .wrap { width: 100%; max-width: 1440px; margin: 0 auto; padding: 0 20px; }
+
+  /* ---------- Header ---------- */
+  header { position: sticky; top: 0; z-index: 30; background: rgba(7,10,18,.82); backdrop-filter: saturate(140%) blur(12px); border-bottom: 1px solid var(--line); }
+  .hdr { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .logo { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; font: 700 11px var(--mono); letter-spacing: .04em; color: #1a0d03;
+    background: linear-gradient(135deg, #fb923c, #f59e0b); box-shadow: 0 6px 20px -6px rgba(249,115,22,.6); }
+  .brand h1 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
+  .brand p { margin: 1px 0 0; color: var(--ink-3); font-size: 12px; }
+  .credit { font: 600 11px var(--mono); color: #fcd34d; padding: 3px 9px; border-radius: 999px; border: 1px solid rgba(251,191,36,.35); background: rgba(251,191,36,.08); white-space: nowrap; }
+  .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .btn { height: 32px; padding: 0 12px; border-radius: var(--radius-sm); display: inline-flex; align-items: center; gap: 7px; font-weight: 550; font-size: 12px;
+    background: var(--surface-2); border: 1px solid var(--line-strong); color: var(--ink-2); transition: background .2s var(--ease), border-color .2s, color .2s, transform .15s var(--ease); }
+  .btn:hover { background: var(--surface-3); color: var(--ink-1); }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary { background: var(--accent); border-color: #fb923c; color: #190b02; font-weight: 700; box-shadow: 0 6px 18px -8px rgba(249,115,22,.8); }
+  .btn.primary:hover { background: #fb8a3c; }
+  .btn svg { width: 14px; height: 14px; }
+  .btn .rec { width: 8px; height: 8px; border-radius: 50%; background: #c084fc; }
+  .btn.recording .rec { background: #ef4444; animation: pulse 1s infinite; }
+  .seg { display: inline-flex; padding: 2px; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--line-strong); }
+  .seg button { height: 26px; padding: 0 9px; border-radius: 6px; font: 600 11px var(--mono); color: var(--ink-3); transition: background .2s, color .2s; }
+  .seg button[aria-pressed="true"] { background: var(--surface-3); color: var(--ink-1); box-shadow: 0 0 0 1px var(--line-strong) inset; }
+  @keyframes pulse { 50% { opacity: .35; } }
+
+  /* ---------- Step rail ---------- */
+  .rail { border-bottom: 1px solid var(--line); background: rgba(12,17,28,.6); }
+  .steps { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 8px; padding: 10px 0; }
+  .step { position: relative; text-align: left; padding: 8px 10px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-1); overflow: hidden;
+    transition: border-color .25s var(--ease), background .25s var(--ease); }
+  .step:hover { border-color: var(--line-strong); background: var(--surface-2); }
+  .step .n { font: 700 10px var(--mono); color: var(--ink-3); letter-spacing: .08em; }
+  .step .t { display: block; font-weight: 600; font-size: 12px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .step .bar { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: var(--line); }
+  .step .bar i { display: block; height: 100%; width: 0; background: var(--accent); }
+  .step.active { border-color: rgba(249,115,22,.55); background: linear-gradient(180deg, rgba(249,115,22,.10), rgba(249,115,22,.02)); }
+  .step.active .n { color: var(--accent); }
+  .step.active .t { color: var(--ink-1); }
+  .step.done .n { color: var(--good); }
+
+  /* ---------- Layout ---------- */
+  main { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; padding-top: 16px; padding-bottom: 24px; }
+  @media (max-width: 1080px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .card-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  .card-h h2 { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-2); }
+  .card-h p { margin: 2px 0 0; font-size: 11.5px; color: var(--ink-3); }
+  .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+  /* ---------- Viewport ---------- */
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .tgroup { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .tlabel { font-size: 11px; color: var(--ink-3); font-weight: 600; }
+  .switch { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink-2); cursor: pointer; user-select: none; }
+  .switch input { appearance: none; width: 28px; height: 16px; border-radius: 999px; background: var(--surface-3); border: 1px solid var(--line-strong); position: relative; margin: 0; cursor: pointer; transition: background .2s var(--ease); }
+  .switch input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--ink-3); transition: transform .25s var(--ease), background .2s; }
+  .switch input:checked { background: rgba(249,115,22,.3); border-color: rgba(249,115,22,.6); }
+  .switch input:checked::after { transform: translateX(12px); background: var(--accent); }
+  input[type=range] { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 999px; outline: none; margin: 0; cursor: pointer;
+    background: linear-gradient(90deg, var(--accent) var(--p, 0%), var(--surface-3) var(--p, 0%)); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); box-shadow: 0 0 0 4px rgba(249,115,22,.15); transition: box-shadow .2s; }
+  input[type=range]::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); }
+  input[type=range]:hover::-webkit-slider-thumb { box-shadow: 0 0 0 6px rgba(249,115,22,.22); }
+  #rng-explode { width: 90px; }
+
+  .viewport { position: relative; height: clamp(420px, 56vh, 600px); overflow: hidden; user-select: none;
+    background: radial-gradient(120% 90% at 50% 40%, #121a2b 0%, #0a0f1a 55%, #06080e 100%); }
+  .viewport canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #sim3d-canvas { cursor: grab; touch-action: none; }
+  #sim3d-canvas:active { cursor: grabbing; }
+  #overlay-canvas { pointer-events: none; }
+  .hud { position: absolute; pointer-events: none; background: rgba(10,15,26,.78); border: 1px solid var(--line-strong); border-radius: 12px; backdrop-filter: blur(10px); }
+  .hud-step { top: 12px; left: 12px; max-width: min(460px, calc(100% - 24px)); padding: 10px 12px; }
+  .hud-step .row { display: flex; align-items: center; gap: 8px; }
+  .chip { font: 700 10px var(--mono); padding: 2px 7px; border-radius: 6px; letter-spacing: .05em; }
+  .chip.accent { color: #fdba74; background: var(--accent-soft); border: 1px solid rgba(249,115,22,.4); }
+  #step-title { font-weight: 650; font-size: 13px; }
+  #step-desc { margin: 5px 0 0; font-size: 11.5px; color: var(--ink-2); line-height: 1.5; }
+  .fade { transition: opacity .35s var(--ease), transform .35s var(--ease); }
+  .fade.out { opacity: 0; transform: translateY(-3px); }
+  .hud-seal { top: 12px; right: 12px; padding: 6px 10px; display: flex; align-items: center; gap: 7px; font: 600 11px var(--mono); color: var(--ink-3); transition: border-color .3s, color .3s, background .3s; }
+  .hud-seal .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .hud-seal[data-s="warn"] { color: var(--warn); border-color: rgba(251,191,36,.45); }
+  .hud-seal[data-s="good"] { color: var(--good); border-color: rgba(52,211,153,.5); background: rgba(6,40,30,.7); }
+  .hud-blow { top: 48px; right: 12px; padding: 5px 10px; font: 700 11px var(--mono); color: #fdba74; opacity: 0; transition: opacity .3s; }
+  .hud-blow.on { opacity: 1; }
+  .hud-orient { bottom: 12px; left: 12px; padding: 5px 10px; font: 600 10.5px var(--mono); display: flex; gap: 8px; color: var(--ink-3); }
+  .hud-orient b { color: #fdba74; font-weight: 600; } .hud-orient em { font-style: normal; color: #c4b5fd; }
+  .hud-help { bottom: 46px; left: 12px; padding: 4px 9px; font: 500 10.5px var(--sans); color: var(--ink-3); }
+  .inset { position: absolute; right: 12px; bottom: 12px; width: 300px; padding: 9px 10px 8px; pointer-events: none; }
+  .inset-h { display: flex; justify-content: space-between; align-items: center; font: 700 10.5px var(--mono); letter-spacing: .04em; color: #d8b4fe; padding-bottom: 6px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
+  #ratchet-status { font-weight: 700; color: var(--ink-3); transition: color .2s; }
+  .inset-c { position: relative; height: 92px; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); background: #070b13; }
+  .inset-f { display: flex; justify-content: space-between; margin-top: 6px; font-size: 10.5px; color: var(--ink-3); }
+
+  .scrub { padding: 12px 14px 14px; border-top: 1px solid var(--line); display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; }
+  .scrub-track { position: relative; }
+  .scrub-track input { width: 100%; }
+  .ticks { position: relative; height: 14px; margin-top: 6px; font: 600 9.5px var(--mono); color: var(--ink-3); }
+  .ticks span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+  .ticks span::before { content: ""; position: absolute; left: 50%; top: -9px; width: 1px; height: 6px; background: var(--line-strong); }
+  #timeline-time { font-size: 12px; color: var(--ink-2); min-width: 92px; text-align: right; }
+
+  /* ---------- Telemetry ---------- */
+  .kpis { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); border-bottom: 1px solid var(--line); }
+  @media (max-width: 720px) { .kpis { grid-template-columns: repeat(2, 1fr); } .steps { grid-template-columns: repeat(2, 1fr); } .inset { display: none; } }
+  .kpi { padding: 12px 14px; border-right: 1px solid var(--line); min-width: 0; }
+  .kpi:last-child { border-right: 0; }
+  .kpi .k { font-size: 10.5px; color: var(--ink-3); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kpi .v { font: 650 22px/1.2 var(--mono); color: var(--ink-1); margin-top: 4px; letter-spacing: -.02em; }
+  .kpi .v small { font-size: 11px; color: var(--ink-3); font-weight: 500; margin-left: 3px; letter-spacing: 0; }
+  .kpi .s { font-size: 11px; color: var(--ink-3); margin-top: 2px; display: flex; align-items: center; gap: 5px; }
+  .status-ic { width: 12px; height: 12px; }
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  @media (max-width: 720px) { .charts { grid-template-columns: 1fr; } }
+  .chart { position: relative; padding: 12px 14px 8px; }
+  .chart + .chart { border-left: 1px solid var(--line); }
+  .chart h3 { margin: 0; font-size: 12px; font-weight: 600; color: var(--ink-1); }
+  .chart .sub { font-size: 11px; color: var(--ink-3); }
+  .chart canvas { width: 100%; height: 132px; display: block; margin-top: 6px; cursor: crosshair; }
+  .tip { position: fixed; z-index: 60; pointer-events: none; padding: 8px 10px; border-radius: 8px; background: rgba(15,22,36,.96); border: 1px solid var(--line-strong);
+    box-shadow: 0 10px 30px -10px rgba(0,0,0,.7); font-size: 11.5px; color: var(--ink-2); opacity: 0; transform: translateY(4px); transition: opacity .12s, transform .12s; white-space: nowrap; }
+  .tip.on { opacity: 1; transform: none; }
+  .tip b { color: var(--ink-1); font: 650 13px var(--mono); }
+  .tip .tt { color: var(--ink-3); font-size: 10.5px; margin-bottom: 3px; }
+  details.table { padding: 0 14px 12px; color: var(--ink-3); font-size: 11.5px; }
+  details.table summary { cursor: pointer; }
+  details.table table { width: 100%; border-collapse: collapse; margin-top: 8px; font-family: var(--mono); font-size: 11px; }
+  details.table th, details.table td { text-align: right; padding: 4px 6px; border-bottom: 1px solid var(--line); color: var(--ink-2); }
+  details.table th:first-child, details.table td:first-child { text-align: left; }
+
+  /* ---------- Inspector ---------- */
+  .detail { margin: 12px 14px; padding: 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); border-left: 3px solid var(--c, var(--accent)); transition: border-color .3s var(--ease); }
+  .detail-h { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  #insp-title { font-weight: 650; font-size: 13px; }
+  #insp-tag { font: 600 10px var(--mono); padding: 2px 7px; border-radius: 6px; color: var(--ink-2); background: var(--surface-1); border: 1px solid var(--line-strong); white-space: nowrap; }
+  #insp-desc { margin: 6px 0 0; font-size: 12px; color: var(--ink-2); line-height: 1.55; }
+  .parts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 0 14px 14px; }
+  .part { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-1); text-align: left; font-size: 11.5px; color: var(--ink-2); min-width: 0;
+    transition: background .2s var(--ease), border-color .2s, color .2s; }
+  .part:hover { background: var(--surface-2); color: var(--ink-1); }
+  .part[aria-pressed="true"] { border-color: var(--c); background: color-mix(in srgb, var(--c) 12%, var(--surface-1)); color: var(--ink-1); }
+  .part i { width: 9px; height: 9px; border-radius: 3px; flex: none; background: var(--c); box-shadow: 0 0 0 2px var(--surface-1); }
+  .part span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .part .num { font: 600 10px var(--mono); color: var(--ink-3); flex: none; overflow: visible; }
+  #btn-clear-part { visibility: hidden; height: 24px; font-size: 11px; }
+  #btn-clear-part.on { visibility: visible; }
+
+  .rig { padding: 14px; display: flex; gap: 16px; }
+  .pipe { position: relative; width: 44px; height: 170px; flex: none; border-radius: 6px; overflow: hidden;
+    background: linear-gradient(90deg, #3b4658, #a7b3c4 38%, #6b778a 62%, #2d3646); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+  .rt { position: absolute; left: -6px; right: -6px; top: 92px; height: 3px; background: #94a3b8; opacity: .45; }
+  .mark { position: absolute; left: 0; right: 0; height: 4px; transition: opacity .4s var(--ease); }
+  .mark::after { content: attr(data-l); position: absolute; right: 3px; top: -11px; font: 700 8px var(--mono); color: #0b0f17; }
+  #mark-pos1 { top: 90px; background: var(--warn); box-shadow: 0 0 10px rgba(251,191,36,.7); }
+  #mark-pos2 { top: 26px; background: #22d3ee; box-shadow: 0 0 10px rgba(34,211,238,.7); opacity: .2; }
+  .rig-txt { display: flex; flex-direction: column; gap: 10px; font-size: 12px; color: var(--ink-2); line-height: 1.5; }
+  .rig-txt b { font: 700 10.5px var(--mono); letter-spacing: .05em; }
+  .rig-note { font-size: 11px; color: var(--ink-3); border-top: 1px solid var(--line); padding-top: 8px; }
+  .kbd { font: 600 10px var(--mono); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--line-strong); background: var(--surface-2); color: var(--ink-2); }
+  footer { color: var(--ink-3); font-size: 11.5px; padding: 14px 0 22px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  .locked main, .locked .rail, .locked .actions { pointer-events: none; filter: grayscale(1) blur(2px); opacity: .35; }
+  .lock-screen { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: rgba(7,10,18,.9); backdrop-filter: blur(6px); }
+  .lock-card { max-width: 440px; padding: 24px; border-radius: var(--radius); border: 1px solid rgba(239,68,68,.5); background: var(--surface-1); text-align: center; }
+  .lock-card h2 { margin: 0 0 8px; font: 700 14px var(--mono); color: #f87171; letter-spacing: .06em; }
+  .lock-card p { margin: 0; color: var(--ink-2); font-size: 12.5px; line-height: 1.6; }
+  .noscript { padding: 40px; text-align: center; color: var(--ink-2); }
+  @media (prefers-reduced-motion: reduce) { * { transition-duration: 0s !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<noscript><div class="noscript">This simulator requires JavaScript and WebGL.</div></noscript>
+
+<header>
+  <div class="wrap hdr">
+    <div class="brand">
+      <div class="logo">OTP</div>
+      <div>
+        <h1>Over The Top Packer: Stabbing &amp; Pack-Off Simulator</h1>
+        <p>Interactive 3D cutaway: how the OTP stabs, ratchets, shoulders and packs off downhole</p>
+      </div>
+      <span class="credit" id="credit-badge" title="Concept &amp; 3D simulation">Developed by Abhishek Mewar · AEE (Production)</span>
+    </div>
+    <div class="actions">
+      <button id="btn-play" class="btn primary" type="button" aria-label="Play sequence">
+        <svg id="ic-play" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.5v11l9-5.5z"/></svg>
+        <svg id="ic-pause" viewBox="0 0 16 16" fill="currentColor" hidden><path d="M4 2h3v12H4zM9 2h3v12H9z"/></svg>
+        <span id="play-text">Play sequence</span>
+      </button>
+      <div class="seg" role="group" aria-label="Playback speed">
+        <button type="button" data-speed="0.5" aria-pressed="false">0.5×</button>
+        <button type="button" data-speed="1" aria-pressed="true">1×</button>
+        <button type="button" data-speed="2" aria-pressed="false">2×</button>
+      </div>
+      <button id="btn-reset" class="btn" type="button">Reset</button>
+      <button id="btn-orient" class="btn" type="button" aria-pressed="false">Axis: Horizontal</button>
+      <button id="btn-record" class="btn" type="button" title="Record the viewport to a .webm video"><span class="rec"></span><span id="rec-text">Record video</span></button>
+    </div>
+  </div>
+</header>
+
+<nav class="rail" aria-label="Operation steps"><div class="wrap steps" id="steps"></div></nav>
+
+<main class="wrap">
+  <div class="col">
+    <section class="card" aria-label="3D viewport">
+      <div class="toolbar">
+        <div class="tgroup">
+          <span class="tlabel">Camera</span>
+          <div class="seg" role="group" aria-label="Camera preset" id="cam-seg">
+            <button type="button" data-cam="full" aria-pressed="true">Full view</button>
+            <button type="button" data-cam="threads" aria-pressed="false">Buttress latch</button>
+            <button type="button" data-cam="rubber" aria-pressed="false">HNBR elements</button>
+            <button type="button" data-cam="kelly" aria-pressed="false">Kelly release</button>
+          </div>
+          <label class="switch" title="Camera follows each step during playback"><input type="checkbox" id="chk-follow" checked><span>Auto-follow</span></label>
+        </div>
+        <div class="tgroup">
+          <label class="switch"><input type="checkbox" id="chk-labels" checked><span>Callouts</span></label>
+          <label class="switch"><input type="checkbox" id="chk-forces" checked><span>Forces</span></label>
+          <label class="switch"><input type="checkbox" id="chk-cutaway" checked><span>180° cutaway</span></label>
+          <span class="tlabel">Explode</span><input id="rng-explode" type="range" min="0" max="100" value="0" aria-label="Exploded view">
+        </div>
+      </div>
+
+      <div class="viewport" id="viewport">
+        <canvas id="sim3d-canvas" aria-label="3D model of the OTP assembly"></canvas>
+        <canvas id="overlay-canvas"></canvas>
+
+        <div class="hud hud-step">
+          <div class="row"><span class="chip accent" id="step-badge">STEP 1 / 5</span><span id="step-title" class="fade"></span></div>
+          <p id="step-desc" class="fade"></p>
+        </div>
+        <div class="hud hud-seal" id="seal-pill" data-s="idle"><span class="dot"></span><span id="seal-text">Annulus open · run-in clearance</span></div>
+        <div class="hud hud-blow" id="blow-pill">BLOW 1 / 6</div>
+        <div class="hud hud-help">Drag to orbit · Shift/right-drag to pan · Scroll to zoom · Click a part to inspect</div>
+        <div class="hud hud-orient" id="orient"><b>◀ TOP · Kelly tool</b><span>|</span><em>Landing nipple · BOTTOM ▶</em></div>
+
+        <div class="hud inset">
+          <div class="inset-h"><span id="inset-title">DETAIL A · BUTTRESS P02/P01</span><span id="ratchet-status">READY</span></div>
+          <div class="inset-c"><canvas id="ratchet-canvas"></canvas></div>
+          <div class="inset-f"><span>45° stab flank ratchets</span><span style="color:var(--good)">7° load flank locks</span></div>
+        </div>
+      </div>
+
+      <div class="scrub">
+        <span class="tlabel">Timeline</span>
+        <div class="scrub-track">
+          <input id="rng-timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="Timeline">
+          <div class="ticks" id="ticks"></div>
+        </div>
+        <span id="timeline-time" class="mono">0.0 s · 0%</span>
+      </div>
+    </section>
+
+    <section class="card" aria-label="Live telemetry">
+      <div class="card-h"><div><h2>Live engineering telemetry</h2><p>Derived from the simulated kinematics · hover a chart to inspect, click to seek</p></div></div>
+      <div class="kpis">
+        <div class="kpi"><div class="k">Stab engagement</div><div class="v mono"><span id="k-depth">0</span><small>mm</small></div><div class="s">of 235 mm thread length</div></div>
+        <div class="kpi"><div class="k">Teeth ratcheted</div><div class="v mono"><span id="k-teeth">0</span><small>/ 148</small></div><div class="s">16 TPI · 1.59 mm pitch</div></div>
+        <div class="kpi"><div class="k">Element squeeze</div><div class="v mono"><span id="k-squeeze">0.0</span><small>%</small></div><div class="s">axial, 3 × HNBR</div></div>
+        <div class="kpi"><div class="k">Kelly turns (RH)</div><div class="v mono"><span id="k-turns">0.0</span><small>/ 30</small></div><div class="s" id="k-overpull">overpull: n/a</div></div>
+        <div class="kpi"><div class="k">Annulus</div><div class="v mono" id="k-seal" style="font-size:16px;padding-top:5px">OPEN</div><div class="s" id="k-seal-s">rated 4000 psi when set</div></div>
+      </div>
+      <div class="charts">
+        <div class="chart"><h3>Stab engagement</h3><div class="sub">P02 travel over P01 threads, mm</div><canvas id="chart-depth"></canvas></div>
+        <div class="chart"><h3>Element axial squeeze</h3><div class="sub">HNBR stack compression, %</div><canvas id="chart-squeeze"></canvas></div>
+      </div>
+      <details class="table"><summary>View data as table</summary><table id="data-table"></table></details>
+    </section>
+  </div>
+
+  <aside class="col">
+    <section class="card">
+      <div class="card-h">
+        <div><h2>Component explorer</h2><p>Select a part here or click it in 3D</p></div>
+        <button id="btn-clear-part" class="btn" type="button">Show all</button>
+      </div>
+      <div class="detail" id="detail">
+        <div class="detail-h"><span id="insp-title">All 9 assembly components</span><span id="insp-tag">L-80 &amp; HNBR</span></div>
+        <p id="insp-desc"></p>
+      </div>
+      <div class="parts" id="parts"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-h"><div><h2>Rig floor marks</h2><p>Chalk marks on the workstring at the rotary table</p></div><span class="chip accent">SURFACE</span></div>
+      <div class="rig">
+        <div class="pipe" aria-hidden="true">
+          <div class="mark" id="mark-pos2" data-l="P2"></div>
+          <div class="rt"></div>
+          <div class="mark" id="mark-pos1" data-l="P1"></div>
+        </div>
+        <div class="rig-txt">
+          <div><b style="color:#22d3ee">POSITION 2</b>: string lifted <strong>0.9 × Kelly travel length</strong> (~1.2 m above Pos 1). Released from here to hammer.</div>
+          <div><b style="color:var(--warn)">POSITION 1</b>: marked at rotary-table height when the OTP tags the landing nipple.</div>
+          <div class="rig-note">As Part 02 jumps teeth and stabs deeper, Pos 1 sinks below the rotary table, so re-mark Pos 1 &amp; 2 (typically 5–6 blows).</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-h"><div><h2>Shortcuts</h2></div></div>
+      <div style="padding:12px 14px;display:grid;grid-template-columns:auto 1fr;gap:7px 12px;font-size:12px;color:var(--ink-2)">
+        <span class="kbd">Space</span><span>Play / pause</span>
+        <span class="kbd">← →</span><span>Previous / next step</span>
+        <span class="kbd">1–4</span><span>Camera presets</span>
+        <span class="kbd">Esc</span><span>Clear part selection</span>
+      </div>
+    </section>
+  </aside>
+</main>
+
+<footer class="wrap"><span id="credit-footer">Concept &amp; 3D simulation by <strong style="color:var(--ink-2)">Abhishek Mewar</strong>, AEE (Production)</span><span>Schematic visualisation. Dimensions indicative, not for fabrication.</span></footer>
+<div class="tip" id="tip"></div>
+
+<script>
+(function () {
+  'use strict';
+  if (!window.THREE) {
+    document.getElementById('viewport').innerHTML = '<div class="noscript">Could not load three.js. Check your internet connection.</div>';
+    return;
+  }
+
+  // ===========================================================================
+  // 0. CONSTANTS & DATA
+  // ===========================================================================
+  const AUTHOR = Object.freeze({ name: 'ABHISHEK MEWAR', role: 'AEE (Production)' });
+
+  // ---------------------------------------------------------------------------
+  // Tamper lock: the author record is bound to a checksum, and the visible
+  // credits must stay present, readable and unaltered. Any violation locks the
+  // simulator. (A deterrent: client-side code can never be fully protected.)
+  // ---------------------------------------------------------------------------
+  const SEAL = 'bd5e3dfe';
+  const sealHash = str => { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); };
+  const integrity = { locked: false };
+  function creditIntact(id) {
+    const el = document.getElementById(id);
+    if (!el || !el.isConnected) return false;
+    if (!/abhishek\s+mewar/i.test(el.textContent) || !/aee \(production\)/i.test(el.textContent)) return false;
+    for (let n = el; n && n !== document.documentElement; n = n.parentElement) {
+      const cs = getComputedStyle(n);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) < 0.5) return false;
+    }
+    const r = el.getBoundingClientRect();
+    return r.width > 20 && r.height > 6;
+  }
+  function verifyIntegrity() {
+    if (integrity.locked) return false;
+    const ok = sealHash(AUTHOR.name + '|' + AUTHOR.role + '|OTP_SALT_2026') === SEAL
+      && creditIntact('credit-badge') && creditIntact('credit-footer')
+      && /abhishek mewar/i.test(document.title);
+    if (!ok) lockSimulator();
+    return ok;
+  }
+  function lockSimulator() {
+    integrity.locked = true;
+    if (typeof setPlaying === 'function') try { setPlaying(false); } catch (e) {}
+    document.body.classList.add('locked');
+    const d = document.createElement('div');
+    d.className = 'lock-screen';
+    d.innerHTML = '<div class="lock-card"><h2>INTEGRITY SEAL BROKEN</h2><p>This simulator was modified without authorisation: the author credit has been altered or removed.<br><br>Original work by <strong>Abhishek Mewar</strong>, AEE (Production).</p></div>';
+    document.body.appendChild(d);
+  }
+  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const THREAD_LEN_MM = 235;              // 105 + 15 + 115 mm thread zones
+  const PITCH_MM = 25.4 / 16;             // 16 TPI
+  const TOTAL_TEETH = Math.round(THREAD_LEN_MM / PITCH_MM);
+  const MAX_SQUEEZE = 0.24;
+  const HAMMER_BLOWS = 6, PACK_BLOWS = 4, KELLY_TURNS = 30;
+
+  const PART_INFO = {
+    p1:    { num: '01', name: 'Landing Nipple',     badge: 'Stationary base',      color: '#a855f7', desc: 'Already set in the wellbore above the gravel-packed screen. Two external 16 TPI buttress thread zones (105 mm upper, 115 mm lower) separated by a 15 mm fluid-relief space, ending at a solid Ø109 mm stop shoulder.' },
+    p2:    { num: '02', name: 'Lower Seal Assy',    badge: 'Buttress latch sleeve', color: '#06b6d4', desc: 'Stabs over Part 01. Its internal 16 TPI buttress teeth ratchet one-way over Part 01 during freefall hammering and lock against 30 MT upward pull once seated on Part 01’s shoulder.' },
+    p8:    { num: '08', name: 'Gauge Ring',         badge: 'Lower stop anvil',      color: '#facc15', desc: 'Threaded onto the 8 TPI stub-Acme thread at the top of Part 02. Once Part 02 shoulders on Part 01 the gauge ring becomes a rigid anvil supporting the bottom HNBR element.' },
+    p3:    { num: '03', name: 'Packing Mandrel',    badge: 'Inner mandrel',         color: '#ef4444', desc: 'Screwed into Part 02 (2-7/8" EUE). Provides the smooth bore that carries the three HNBR elements, with upper 16 TPI buttress teeth (Detail B) that lock the compressed rubbers.' },
+    p4:    { num: '04', name: '3 × HNBR Elements',  badge: '90 / 70 / 90 Shore A',  color: '#22d3ee', desc: 'Three elastomer sealing rings squeezed axially between Part 06 (top) and gauge ring Part 08 (bottom), expanding radially to seal the casing annulus up to 4000 psi.' },
+    p6:    { num: '06', name: 'Drive & Spacers',    badge: 'Compression ring',      color: '#cbd5e1', desc: 'Part 06 transfers the hammer blow from Part 07 onto the top HNBR element; the two steel spacer rings (Part 05) stabilise radial expansion between elements.' },
+    p7:    { num: '07', name: 'Upper Seal Assy',    badge: 'Upper ratchet lock',    color: '#4ade80', desc: 'Top housing driven down by the Kelly tool. Its internal split ring “B” ratchets over Part 03’s upper buttress threads (Detail B) to permanently trap the elastomer squeeze.' },
+    kelly: { num: 'KT', name: 'Kelly Tool (LHT)',   badge: 'Running tool',          color: '#f97316', desc: 'Connects the workstring to Part 07 via a 4 TPI left-hand square thread. Transmits hammer blows during setting, then unscrews with 25–30 right-hand turns to pull out of hole.' }
+  };
+  const DEFAULT_DESC = 'Select a component to spotlight its geometry and see how it interacts with the rest of the packer. Non-selected parts fade back so the load path stays readable.';
+
+  const STEPS = [
+    { short: 'Tag & mark Pos 1',   dur: 4.5, cam: 'full',    title: 'Tagging the landing nipple: Pos 1 marked',      desc: 'The workstring is lowered slowly until Part 02 tags the top of Part 01. Full string weight is set down and a chalk line is marked at the rotary table as POSITION 1.' },
+    { short: 'Lift to Pos 2',      dur: 3.5, cam: 'threads', title: 'Lifting to Pos 2: 0.9 × Kelly travel',          desc: 'The driller picks up 0.9 × the Kelly tool travel length (~1.2 m), extending the Kelly stroke. A second chalk mark is placed as POSITION 2.' },
+    { short: 'Freefall hammering', dur: 10,  cam: 'threads', title: 'Freefall hammering: buttress teeth ratchet',   desc: 'The block is released from Pos 2 to Pos 1. Each blow drives the sleeve down; 45° stab flanks dilate it radially (~1 mm) so it jumps tooth crests across both zones until Part 02 shoulders on Part 01.' },
+    { short: 'Pack-off elements',  dur: 7,   cam: 'rubber',  title: 'Pack-off: elements squeezed against gauge ring', desc: 'Further blows drive Parts 06 and 07 down. With gauge ring Part 08 held rigid by Part 02, the 90/70/90 Shore A HNBR elements expand radially into the casing wall.' },
+    { short: 'Overpull & release', dur: 6,   cam: 'kelly',   title: '+2 t overpull check, then Kelly tool release',    desc: 'String is lifted past Pos 2 to confirm +2 t overpull (7° buttress flanks hold). Slips are set between Pos 1 and 2 and the string is turned 25–30 times RH to back off the left-hand thread.' }
+  ];
+  const STEP_START = [];
+  let TOTAL = 0;
+  STEPS.forEach(s => { STEP_START.push(TOTAL); TOTAL += s.dur; });
+
+  const CAMS = {
+    full:    { theta: 0.3, phi: 1.24, dist: 780, target: [-165, 0, 0] },
+    threads: { theta: -0.2, phi: 1.32, dist: 250, target: [-45, 0, 0] },
+    rubber:  { theta: 0.18, phi: 1.36, dist: 225, target: [-205, 0, 0] },
+    kelly:   { theta: 0.3,  phi: 1.3,  dist: 270, target: [-300, 0, 0] }
+  };
+  const CAM_KEYS = ['full', 'threads', 'rubber', 'kelly'];
+
+  // ===========================================================================
+  // 1. MATH & EASING
+  // ===========================================================================
+  const clamp01 = x => Math.max(0, Math.min(1, x));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+  const easeInOutSine = t => -(Math.cos(Math.PI * t) - 1) / 2;
+  const easeOutBack = t => { const c = 1.4; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
+  const damp = (dt, rate) => 1 - Math.exp(-dt * rate); // frame-rate independent smoothing
+
+  function phaseAt(t) {
+    for (let i = STEPS.length - 1; i >= 0; i--) {
+      if (t >= STEP_START[i]) return { idx: i, u: clamp01((t - STEP_START[i]) / STEPS[i].dur) };
+    }
+    return { idx: 0, u: 0 };
+  }
+
+  // Hammer-blow cycle: pick-up (ease), freefall (gravity, t²), impact, then the
+  // driven part advances with a decelerating ease while the block rests.
+  function blowCycle(u, n, dur, startLifted) {
+    const local = Math.min(u * n, n - 1e-6);
+    const i = Math.floor(local);
+    const v = local - i;
+    let stroke = 0, adv = 0, impactAge = -1;
+    if (v < 0.45) {
+      stroke = (startLifted && i === 0) ? 1 : easeInOutSine(v / 0.45);
+    } else if (v < 0.6) {
+      const s = (v - 0.45) / 0.15;
+      stroke = 1 - s * s;
+    } else {
+      adv = easeOutBack(clamp01((v - 0.6) / 0.16));
+      impactAge = (v - 0.6) / n * dur;
+    }
+    if (u >= 1) { adv = 1; stroke = 0; }
+    return { index: i, stroke, prog: Math.min(1, (i + Math.min(adv, 1.03)) / n), impactAge };
+  }
+
+  // Single source of truth for every animated quantity. Pure function of t.
+  function kinematics(t) {
+    const { idx, u } = phaseAt(t);
+    const k = { idx, u, stab: 0.15, comp: 0, kellyLift: 0, turns: 0, overpull: 0,
+                insetTeeth: 0, insetDetail: 'A', blow: -1, blows: 0, impactAge: -1, pos2: 0, pos1Drop: 0 };
+    if (idx === 0) {
+      k.stab = lerp(-0.75, 0.15, easeInOutCubic(u));
+    } else if (idx === 1) {
+      k.kellyLift = easeInOutCubic(u);
+      k.pos2 = easeOutCubic(u);
+    } else if (idx === 2) {
+      const b = blowCycle(u, HAMMER_BLOWS, STEPS[2].dur, true);
+      k.stab = 0.15 + 0.85 * b.prog;
+      k.kellyLift = b.stroke;
+      k.insetTeeth = b.prog * HAMMER_BLOWS * 3;
+      k.blow = b.index; k.blows = HAMMER_BLOWS; k.impactAge = b.impactAge;
+      k.pos2 = 1; k.pos1Drop = b.prog * 0.65;
+    } else if (idx === 3) {
+      const b = blowCycle(u, PACK_BLOWS, STEPS[3].dur, false);
+      k.stab = 1; k.comp = b.prog; k.kellyLift = b.stroke;
+      k.insetTeeth = b.prog * PACK_BLOWS * 2; k.insetDetail = 'B';
+      k.blow = b.index; k.blows = PACK_BLOWS; k.impactAge = b.impactAge;
+      k.pos2 = 1; k.pos1Drop = 0.65 + b.prog * 0.35;
+    } else {
+      k.stab = 1; k.comp = 1; k.insetDetail = 'B'; k.insetTeeth = PACK_BLOWS * 2; k.pos2 = 1; k.pos1Drop = 1;
+      if (u < 0.3) {
+        const s = Math.sin(Math.PI * u / 0.3);
+        k.overpull = 2 * s;
+        k.kellyLift = -0.04 * s; // tiny elastic stretch, flanks hold
+        k.insetTeeth -= 0.05 * s;
+      } else {
+        k.turns = KELLY_TURNS * easeInOutCubic((u - 0.3) / 0.7);
+      }
+    }
+    k.comp = Math.min(1.02, k.comp);
+    k.depthMM = clamp01((k.stab - 0.15) / 0.85) * THREAD_LEN_MM;
+    k.teeth = Math.round(k.depthMM / PITCH_MM);
+    k.squeezePct = clamp01(k.comp) * MAX_SQUEEZE * 100;
+    return k;
+  }
+
+  // ===========================================================================
+  // 2. STATE
+  // ===========================================================================
+  const state = {
+    t: 0, playing: false, speed: 1, cutaway: true, labels: true, forces: true,
+    vertical: false, explode: 0, explodeView: 0, selected: null, follow: true, lastIdx: -1, shake: 0
+  };
+  const orbit = {
+    theta: CAMS.full.theta, phi: CAMS.full.phi, dist: CAMS.full.dist, target: new THREE.Vector3(...CAMS.full.target),
+    goal: { theta: CAMS.full.theta, phi: CAMS.full.phi, dist: CAMS.full.dist, target: new THREE.Vector3(...CAMS.full.target) },
+    dragging: false, panning: false, lastX: 0, lastY: 0, vTheta: 0, vPhi: 0
+  };
+
+  // ===========================================================================
+  // 3. RENDERER, LIGHTING & ENVIRONMENT
+  // ===========================================================================
+  const $ = id => document.getElementById(id);
+  const viewportEl = $('viewport');
+  const canvas3d = $('sim3d-canvas');
+  const overlay = $('overlay-canvas');
+  const oCtx = overlay.getContext('2d');
+
+  const renderer = new THREE.WebGLRenderer({ canvas: canvas3d, antialias: true, alpha: true, preserveDrawingBuffer: false });
+  renderer.setPixelRatio(DPR);
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  renderer.setClearColor(0x000000, 0);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(32, 1, 1, 4000);
+
+  // Procedural studio environment for believable metal reflections.
+  (function buildEnvironment() {
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const env = new THREE.Scene();
+    const room = new THREE.Mesh(new THREE.BoxGeometry(100, 100, 100), new THREE.MeshBasicMaterial({ color: 0x1a2232, side: THREE.BackSide }));
+    env.add(room);
+    const addPanel = (w, h, pos, rot, c) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide }));
+      m.position.set(...pos); m.rotation.set(...rot); env.add(m);
+    };
+    addPanel(60, 14, [0, 45, 0], [Math.PI / 2, 0, 0], 0xffffff);
+    addPanel(40, 30, [-48, 10, 10], [0, Math.PI / 2, 0], 0x9fc4ff);
+    addPanel(40, 20, [48, 0, -10], [0, -Math.PI / 2, 0], 0xffd0a8);
+    scene.environment = pmrem.fromScene(env, 0.04).texture;
+    pmrem.dispose();
+  })();
+
+  scene.add(new THREE.HemisphereLight(0xdbe7ff, 0x1b1410, 0.55));
+  const key = new THREE.DirectionalLight(0xffffff, 1.6); key.position.set(180, 320, 420); scene.add(key);
+  const rim = new THREE.DirectionalLight(0x7dd3fc, 0.8); rim.position.set(-260, -120, -300); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0xffc89a, 0.35); fill.position.set(-300, 120, 200); scene.add(fill);
+
+  const grid = new THREE.GridHelper(1400, 56, 0x2a3650, 0x161e2e);
+  grid.position.set(-120, -80, 0);
+  grid.material.transparent = true; grid.material.opacity = 0.55; grid.material.depthWrite = false;
+  scene.add(grid);
+
+  const rootGroup = new THREE.Group();
+  scene.add(rootGroup);
+
+  // Diagonal hatch texture for section (cut) faces, a standard CAD convention.
+  const hatchTex = (function () {
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const x = c.getContext('2d');
+    x.fillStyle = '#ffffff'; x.fillRect(0, 0, 64, 64);
+    x.strokeStyle = 'rgba(0,0,0,0.28)'; x.lineWidth = 3;
+    for (let i = -64; i <= 128; i += 16) { x.beginPath(); x.moveTo(i, 64); x.lineTo(i + 64, 0); x.stroke(); }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(1 / 7, 1 / 7);
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    return tex;
+  })();
+
+  // ===========================================================================
+  // 4. GEOMETRY: built once; selection & cutaway only touch materials/visibility
+  // ===========================================================================
+  const partMats = {};     // partKey -> [{ mat, base, kind }]
+  const pickables = [];
+  const parts = {};
+  const disposables = [];
+
+  const srgb = hex => new THREE.Color(hex).convertSRGBToLinear();
+
+  function registerMat(key, mat, kind, base) {
+    (partMats[key] = partMats[key] || []).push({ mat, kind, base });
+  }
+
+  function makePiece(profile, colorHex, partKey, opt) {
+    opt = opt || {};
+    const pts = profile.map(p => new THREE.Vector2(Math.max(1, p[0]), p[1]));
+    const first = pts[0], last = pts[pts.length - 1];
+    if (first.x !== last.x || first.y !== last.y) pts.push(first.clone());
+
+    const group = new THREE.Group();
+    const cut = state.cutaway;
+    const geo = new THREE.LatheGeometry(pts, 96, cut ? Math.PI * 0.5 : 0, cut ? Math.PI : Math.PI * 2);
+    geo.rotateZ(-Math.PI / 2);
+    disposables.push(geo);
+
+    const color = srgb(colorHex);
+    const mat = new THREE.MeshStandardMaterial({
+      color, roughness: opt.rough ?? 0.32, metalness: opt.metal ?? 0.75, envMapIntensity: 1,
+      side: THREE.DoubleSide, transparent: true, opacity: 1, emissive: color.clone(), emissiveIntensity: 0
+    });
+    disposables.push(mat);
+    registerMat(partKey, mat, 'body', 1);
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.userData.partKey = partKey;
+    group.add(mesh);
+    pickables.push(mesh);
+
+    const edgeGeo = new THREE.EdgesGeometry(geo, 30);
+    const edgeMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.12, depthWrite: false });
+    disposables.push(edgeGeo, edgeMat);
+    registerMat(partKey, edgeMat, 'edge', 0.12);
+    group.add(new THREE.LineSegments(edgeGeo, edgeMat));
+
+    // Section caps on the two cut planes, hatched like a CAD section view.
+    if (cut) {
+      const shape = new THREE.Shape(pts.slice(0, -1));
+      const capColor = color.clone().lerp(new THREE.Color(1, 1, 1), 0.18);
+      const capMat = new THREE.MeshStandardMaterial({
+        color: capColor, map: opt.noHatch ? null : hatchTex, roughness: 0.7, metalness: 0.15,
+        side: THREE.DoubleSide, transparent: true, opacity: 1, emissive: color.clone(), emissiveIntensity: 0,
+        polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1
+      });
+      disposables.push(capMat);
+      registerMat(partKey, capMat, 'body', 1);
+      [1, -1].forEach(sx => {
+        const capGeo = new THREE.ShapeGeometry(shape);
+        capGeo.scale(sx, 1, 1);
+        capGeo.rotateZ(-Math.PI / 2);
+        disposables.push(capGeo);
+        const cap = new THREE.Mesh(capGeo, capMat);
+        cap.userData.partKey = partKey;
+        group.add(cap);
+        pickables.push(cap);
+      });
+    }
+    return group;
+  }
+
+  function build3DAssembly() {
+    disposables.forEach(d => d.dispose());
+    disposables.length = 0;
+    pickables.length = 0;
+    Object.keys(partMats).forEach(k => delete partMats[k]);
+    while (rootGroup.children.length) rootGroup.remove(rootGroup.children[0]);
+
+    // Casing reference wall (translucent so the radial pack-off contact is visible)
+    const casingGeo = new THREE.LatheGeometry(
+      [[43.5, -380], [47, -380], [47, 95], [43.5, 95], [43.5, -380]].map(p => new THREE.Vector2(p[0], p[1])),
+      96, state.cutaway ? Math.PI * 0.5 : 0, state.cutaway ? Math.PI : Math.PI * 2);
+    casingGeo.rotateZ(-Math.PI / 2);
+    const casingMat = new THREE.MeshStandardMaterial({ color: srgb('#64748b'), transparent: true, opacity: 0.13, roughness: 0.5, metalness: 0.4, side: THREE.DoubleSide, depthWrite: false });
+    disposables.push(casingGeo, casingMat);
+    rootGroup.add(new THREE.Mesh(casingGeo, casingMat));
+
+    parts.p1 = new THREE.Group();
+    parts.p1.add(makePiece([[21, -135], [27.6, -135], [27.6, -122], [29.5, -122], [29.5, -70], [27.4, -70], [27.4, -58],
+      [29.5, -58], [29.5, -5], [27.4, -5], [27.4, 0], [36.5, 0], [36.5, 22], [30.2, 22], [30.2, 85], [21, 85]], '#a855f7', 'p1'));
+    parts.p1.add(makePiece([[29.4, -121], [30.15, -121], [30.15, -71], [29.4, -71]], '#e879f9', 'p1', { rough: 0.22, metal: 0.85 }));
+    parts.p1.add(makePiece([[29.4, -57], [30.15, -57], [30.15, -6], [29.4, -6]], '#e879f9', 'p1', { rough: 0.22, metal: 0.85 }));
+
+    parts.p2 = new THREE.Group();
+    parts.p2.add(makePiece([[26.6, -175], [30.4, -175], [30.4, -156], [35.5, -156], [35.5, 0], [29.6, 0], [29.6, -125], [26.6, -125]], '#06b6d4', 'p2'));
+
+    parts.p8 = new THREE.Group();
+    parts.p8.add(makePiece([[26.8, -190], [39, -190], [39, -156], [30.5, -156], [30.5, -175], [26.8, -175]], '#facc15', 'p8', { rough: 0.28 }));
+
+    parts.p3 = new THREE.Group();
+    parts.p3.add(makePiece([[20, -355], [29.2, -355], [29.2, -290], [26.6, -290], [26.6, -125], [20, -125]], '#ef4444', 'p3'));
+
+    parts.p4 = new THREE.Group();
+    for (let i = 0; i < 3; i++) {
+      parts.p4.add(makePiece([[26.7, -0.5], [31.5, -0.5], [38, -0.32], [38, 0.32], [31.5, 0.5], [26.7, 0.5]],
+        i === 1 ? '#0891b2' : '#22d3ee', 'p4', { rough: 0.85, metal: 0.02, noHatch: true }));
+    }
+
+    parts.p5 = new THREE.Group();
+    for (let i = 0; i < 2; i++) parts.p5.add(makePiece([[26.7, -0.5], [39, -0.5], [39, 0.5], [26.7, 0.5]], '#94a3b8', 'p6', { noHatch: true }));
+
+    parts.p6 = new THREE.Group();
+    parts.p6.add(makePiece([[34.2, -38], [39, -38], [39, 0], [26.8, 0], [26.8, -16], [34.2, -16]], '#cbd5e1', 'p6'));
+
+    parts.p7 = new THREE.Group();
+    parts.p7.add(makePiece([[28.5, -145], [35, -145], [35, -38], [34.1, -38], [34.1, -16], [29.3, -16], [29.3, -92], [28.5, -92]], '#4ade80', 'p7'));
+
+    parts.kelly = new THREE.Group();
+    parts.kelly.add(makePiece([[19.5, -230], [33.5, -230], [33.5, -150], [28.4, -150], [28.4, -96], [19.5, -96]], '#f97316', 'kelly'));
+    // Workstring stub above the Kelly tool
+    parts.kelly.add(makePiece([[17, -420], [23, -420], [23, -230], [17, -230]], '#64748b', 'kelly', { rough: 0.45 }));
+
+    Object.values(parts).forEach(g => rootGroup.add(g));
+    applyMaterialTargets(1);
+  }
+
+  // Smoothly fade non-selected parts and glow the selected one.
+  function applyMaterialTargets(a) {
+    Object.keys(partMats).forEach(k => {
+      const dim = state.selected && state.selected !== k;
+      const hi = state.selected === k;
+      partMats[k].forEach(e => {
+        const goal = dim ? (e.kind === 'edge' ? 0.03 : 0.12) : e.base;
+        e.mat.opacity += (goal - e.mat.opacity) * a;
+        e.mat.depthWrite = e.mat.opacity > 0.95 && e.kind !== 'edge';
+        if (e.kind === 'body') e.mat.emissiveIntensity += ((hi ? 0.22 : 0) - e.mat.emissiveIntensity) * a;
+      });
+    });
+  }
+
+  // ===========================================================================
+  // 5. TRANSFORMS
+  // ===========================================================================
+  let anchors = {};
+  const tmpV = new THREE.Vector3();
+
+  function syncTransforms(k) {
+    const exp = state.explodeView;
+    const p1X = exp * 35;
+    parts.p1.position.x = p1X;
+
+    const stabX = -(1 - k.stab) * 65;
+    parts.p2.position.x = stabX;
+    parts.p8.position.x = stabX - exp * 15;
+    parts.p3.position.x = stabX - exp * 25;
+
+    const gaugeFaceX = -190 + stabX - exp * 15;
+    const comp = k.comp;
+    const elemLen = 28 * (1 - comp * MAX_SQUEEZE);
+    const spLen = 6;
+    const bulge = 1 + clamp01(comp) * 0.145 + Math.max(0, comp - 1) * 0.6; // reaches casing ID at full squeeze
+    const gap = exp * 10;
+
+    const e0 = gaugeFaceX - elemLen / 2 - gap;
+    const s0 = e0 - elemLen / 2 - spLen / 2 - gap;
+    const e1 = s0 - spLen / 2 - elemLen / 2 - gap;
+    const s1 = e1 - elemLen / 2 - spLen / 2 - gap;
+    const e2 = s1 - spLen / 2 - elemLen / 2 - gap;
+    [e0, e1, e2].forEach((cx, i) => { const m = parts.p4.children[i]; m.position.x = cx; m.scale.set(elemLen, bulge, bulge); });
+    [s0, s1].forEach((cx, i) => { const m = parts.p5.children[i]; m.position.x = cx; m.scale.set(spLen, 1, 1); });
+
+    const topFaceX = e2 - elemLen / 2 - gap;
+    parts.p6.position.x = topFaceX - exp * 18;
+    parts.p7.position.x = topFaceX - exp * 35;
+
+    const kellyX = topFaceX - (k.turns / KELLY_TURNS) * 70 - k.kellyLift * 30 - exp * 60;
+    parts.kelly.position.x = kellyX;
+    parts.kelly.rotation.x = k.turns * Math.PI * 2;
+
+    anchors = {
+      p1: [p1X + 40, -36], gap15: [p1X - 64, 28], shoulder: [p1X, 0],
+      p2: [stabX - 75, 35.5], p8: [stabX - exp * 15 - 172, -39], p4: [e1, 38 * bulge],
+      p3: [stabX - exp * 25 - 320, -29], p6: [topFaceX - exp * 18 - 12, -39],
+      p7: [topFaceX - exp * 35 - 85, 35], kelly: [kellyX - 185, -33.5], topFace: [topFaceX, 0]
+    };
+  }
+
+  // ===========================================================================
+  // 6. CAMERA
+  // ===========================================================================
+  function applyCameraPreset(name) {
+    const c = CAMS[name];
+    orbit.goal.theta = c.theta; orbit.goal.phi = c.phi; orbit.goal.dist = c.dist; orbit.goal.target.set(...c.target);
+    orbit.vTheta = orbit.vPhi = 0;
+    document.querySelectorAll('#cam-seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.cam === name));
+  }
+
+  function stepCamera(dt) {
+    if (!orbit.dragging) {
+      // Inertia after a drag, then glide toward the goal.
+      orbit.goal.theta += orbit.vTheta * dt; orbit.goal.phi += orbit.vPhi * dt;
+      const f = Math.exp(-dt * 5); orbit.vTheta *= f; orbit.vPhi *= f;
+      const a = damp(dt, 4.5);
+      orbit.theta += (orbit.goal.theta - orbit.theta) * a;
+      orbit.phi += (orbit.goal.phi - orbit.phi) * a;
+      orbit.dist += (orbit.goal.dist - orbit.dist) * a;
+      orbit.target.lerp(orbit.goal.target, a);
+    }
+    orbit.goal.phi = Math.max(0.15, Math.min(Math.PI - 0.15, orbit.goal.phi));
+    orbit.phi = Math.max(0.15, Math.min(Math.PI - 0.15, orbit.phi));
+    const sp = Math.sin(orbit.phi);
+    camera.position.set(
+      orbit.target.x + orbit.dist * sp * Math.sin(orbit.theta),
+      orbit.target.y + orbit.dist * Math.cos(orbit.phi),
+      orbit.target.z + orbit.dist * sp * Math.cos(orbit.theta));
+    camera.lookAt(orbit.target);
+    if (state.shake > 0.001) {
+      camera.position.y += (Math.random() - 0.5) * state.shake;
+      camera.position.x += (Math.random() - 0.5) * state.shake * 0.5;
+    }
+  }
+
+  // ===========================================================================
+  // 7. 2D OVERLAY: callouts, force vectors, impact rings, title block
+  // ===========================================================================
+  let vw = 800, vh = 450;
+  const labelAlpha = {};
+
+  function project(x, y) {
+    tmpV.set(x, y, 0).applyMatrix4(rootGroup.matrixWorld).project(camera);
+    return { x: (tmpV.x * 0.5 + 0.5) * vw, y: (-tmpV.y * 0.5 + 0.5) * vh, ok: tmpV.z < 1 };
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, y, w, h, r);
+    else ctx.rect(x, y, w, h);
+  }
+
+  function arrow(x1, y1, x2, y2, color, text, phase, alpha) {
+    const ang = Math.atan2(y2 - y1, x2 - x1);
+    const len = Math.hypot(x2 - x1, y2 - y1);
+    if (len < 8) return;
+    const ctx = oCtx;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(x1, y1); ctx.rotate(ang);
+    // glow shaft
+    ctx.strokeStyle = color; ctx.lineCap = 'round';
+    ctx.shadowColor = color; ctx.shadowBlur = 10;
+    ctx.lineWidth = 3; ctx.setLineDash([10, 6]); ctx.lineDashOffset = -phase * 32;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(len - 10, 0); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.moveTo(len, 0); ctx.lineTo(len - 12, -6); ctx.lineTo(len - 12, 6); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    if (text) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.font = '700 9.5px ui-monospace, Menlo, monospace';
+      const tw = ctx.measureText(text).width + 10;
+      const mx = (x1 + x2) / 2, my = (y1 + y2) / 2 - 15;
+      ctx.fillStyle = 'rgba(8,12,20,.85)';
+      roundRect(ctx, mx - tw / 2, my - 8, tw, 16, 4); ctx.fill();
+      ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(text, mx, my);
+      ctx.restore();
+    }
+  }
+
+  function impactRing(p, age, color) {
+    if (age < 0 || age > 0.6) return;
+    const q = age / 0.6;
+    oCtx.save();
+    oCtx.strokeStyle = color;
+    for (let i = 0; i < 2; i++) {
+      const qq = clamp01(q - i * 0.18);
+      oCtx.globalAlpha = (1 - qq) * 0.8;
+      oCtx.lineWidth = 2.5 * (1 - qq) + 0.5;
+      oCtx.beginPath(); oCtx.ellipse(p.x, p.y, 8 + qq * 60, 4 + qq * 30, 0, 0, Math.PI * 2); oCtx.stroke();
+    }
+    oCtx.restore();
+  }
+
+  const CALLOUTS = [
+    { key: 'kelly', dx: -10, dy: 46, label: 'KT  Kelly tool (LHT)' },
+    { key: 'p7', dx: -10, dy: -46, label: '07  Upper seal assy' },
+    { key: 'p6', dx: -20, dy: 48, label: '06  Drive ring' },
+    { key: 'p4', dx: 0, dy: -50, label: '04  HNBR × 3' },
+    { key: 'p3', dx: 5, dy: 50, label: '03  Packing mandrel' },
+    { key: 'p8', dx: 16, dy: 46, label: '08  Gauge ring (stop)' },
+    { key: 'p2', dx: 14, dy: -48, label: '02  Lower seal assy' },
+    { key: 'gap15', owner: 'p1', dx: 28, dy: -36, label: '15 mm relief gap', color: '#e879f9' },
+    { key: 'p1', dx: 24, dy: 44, label: '01  Landing nipple' }
+  ];
+
+  function drawOverlay(k, time, dt) {
+    oCtx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    oCtx.clearRect(0, 0, vw, vh);
+    rootGroup.updateMatrixWorld();
+
+    // Force vectors (animated dash flow; brightened at impact)
+    if (state.forces) {
+      const flash = k.impactAge >= 0 ? Math.max(0, 1 - k.impactAge / 0.4) : 0;
+      const alpha = 0.75 + 0.25 * flash;
+      if (k.idx === 2) {
+        const a = anchors.p2;
+        const s = project(a[0] - 60, 0), e = project(a[0] + 10, 0);
+        arrow(s.x, s.y, e.x, e.y, '#fb923c', k.kellyLift > 0.05 ? 'FREEFALL' : 'HAMMER STAB', time, alpha);
+        impactRing(project(anchors.shoulder[0], 0), k.impactAge, '#fdba74');
+      } else if (k.idx === 3 || (k.idx === 4 && k.u < 0.3)) {
+        const p6 = anchors.p6, p8 = anchors.p8, p4 = anchors.p4;
+        let s = project(p6[0] - 36, 0), e = project(p6[0] + 8, 0);
+        arrow(s.x, s.y, e.x, e.y, '#fb923c', 'DRIVE', time, alpha);
+        s = project(p8[0] + 30, 0); e = project(p8[0] - 4, 0);
+        arrow(s.x, s.y, e.x, e.y, '#facc15', 'REACTION', time, 0.85);
+        s = project(p4[0], 20); e = project(p4[0], 20 + 30 * Math.max(0.35, clamp01(k.comp)));
+        arrow(s.x, s.y, e.x, e.y, '#22d3ee', 'RADIAL SEAL', time, 0.9);
+        if (k.idx === 3) impactRing(project(anchors.topFace[0], 0), k.impactAge, '#fdba74');
+      }
+      if (k.idx === 4 && k.u < 0.3) {
+        const a = anchors.kelly;
+        const s = project(a[0] + 40, 0), e = project(a[0] - 30, 0);
+        arrow(s.x, s.y, e.x, e.y, '#34d399', `OVERPULL +${k.overpull.toFixed(1)} t`, time, 0.95);
+      }
+    }
+
+    // Callouts with fade in/out, elbow leaders and edge clamping
+    const fadeA = damp(dt, 10);
+    CALLOUTS.forEach(c => {
+      const owner = c.owner || c.key;
+      const want = state.labels && (!state.selected || state.selected === owner) ? 1 : 0;
+      labelAlpha[c.key] = (labelAlpha[c.key] || 0) + (want - (labelAlpha[c.key] || 0)) * fadeA;
+      const al = labelAlpha[c.key];
+      if (al < 0.02 || !anchors[c.key]) return;
+      const p = project(anchors[c.key][0], anchors[c.key][1]);
+      if (!p.ok || p.x < 10 || p.x > vw - 10 || p.y < 10 || p.y > vh - 10) return;
+      const color = c.color || PART_INFO[c.key].color;
+      oCtx.font = '600 10.5px Inter, -apple-system, "Segoe UI", sans-serif';
+      const tw = oCtx.measureText(c.label).width + 18;
+      const bx = Math.max(tw / 2 + 8, Math.min(vw - tw / 2 - 8, p.x + c.dx));
+      const by = Math.max(96, Math.min(vh - 30, p.y + c.dy));
+      oCtx.save();
+      oCtx.globalAlpha = al;
+      oCtx.strokeStyle = color; oCtx.lineWidth = 1.2;
+      oCtx.beginPath(); oCtx.moveTo(p.x, p.y); oCtx.lineTo(bx, by > p.y ? by - 10 : by + 10); oCtx.stroke();
+      oCtx.fillStyle = '#0a0f1a'; oCtx.beginPath(); oCtx.arc(p.x, p.y, 4, 0, Math.PI * 2); oCtx.fill();
+      oCtx.fillStyle = color; oCtx.beginPath(); oCtx.arc(p.x, p.y, 2.6, 0, Math.PI * 2); oCtx.fill();
+      oCtx.fillStyle = 'rgba(10,15,26,.92)';
+      roundRect(oCtx, bx - tw / 2, by - 10, tw, 20, 6); oCtx.fill();
+      oCtx.strokeStyle = 'rgba(148,163,184,.25)'; oCtx.stroke();
+      oCtx.fillStyle = color; roundRect(oCtx, bx - tw / 2 + 5, by - 4, 3, 8, 1.5); oCtx.fill();
+      oCtx.fillStyle = '#e2e8f0'; oCtx.textAlign = 'center'; oCtx.textBaseline = 'middle';
+      oCtx.fillText(c.label, bx + 3, by + 0.5);
+      oCtx.restore();
+    });
+
+    // Title block (CAD-style author stamp)
+    oCtx.save();
+    const by = vh - 80;
+    oCtx.font = '700 10px ui-monospace, Menlo, monospace';
+    const l1 = 'DEVELOPED BY ' + AUTHOR.name, l2 = AUTHOR.role + ' · OTP SIMULATOR';
+    const w = Math.max(oCtx.measureText(l1).width, oCtx.measureText(l2).width) + 20;
+    const x = 12 + w;
+    oCtx.fillStyle = 'rgba(10,15,26,.78)'; oCtx.strokeStyle = 'rgba(251,191,36,.35)';
+    roundRect(oCtx, x - w, by - 34, w, 34, 8); oCtx.fill(); oCtx.stroke();
+    oCtx.textAlign = 'left'; oCtx.textBaseline = 'top';
+    oCtx.fillStyle = '#fbbf24'; oCtx.fillText(l1, x - w + 10, by - 28);
+    oCtx.font = '500 9.5px Inter, -apple-system, sans-serif'; oCtx.fillStyle = '#94a3b8';
+    oCtx.fillText(l2, x - w + 10, by - 15);
+    oCtx.restore();
+  }
+
+  // ===========================================================================
+  // 8. MAGNIFIED RATCHET INSET: tooth lift derived from the actual flank geometry
+  // ===========================================================================
+  const rCanvas = $('ratchet-canvas');
+  const rCtx = rCanvas.getContext('2d');
+  let rw = 280, rh = 92;
+
+  function drawRatchet(k) {
+    const ctx = rCtx;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, rw, rh);
+    const B = k.insetDetail === 'B';
+    const lowC = B ? ['#7f1d1d', '#f87171'] : ['#581c87', '#c084fc'];
+    const upC = B ? ['rgba(22,101,52,.95)', '#86efac'] : ['rgba(8,145,178,.95)', '#67e8f9'];
+    const pitch = 30, tH = 13, ramp = 0.8;
+    const cy = rh * 0.66;
+    const teeth = k.insetTeeth;
+    const f = ((teeth % 1) + 1) % 1;
+    // Sleeve rides up the 45° flank, then snaps down the 7° face.
+    const lift = (f < ramp ? f / ramp : (1 - f) / (1 - ramp)) * tH;
+    const shift = teeth * pitch;
+
+    // background grid
+    ctx.strokeStyle = 'rgba(148,163,184,.06)'; ctx.lineWidth = 1;
+    for (let gx = 0; gx < rw; gx += 12) { ctx.beginPath(); ctx.moveTo(gx + .5, 0); ctx.lineTo(gx + .5, rh); ctx.stroke(); }
+
+    // stationary teeth
+    const grad1 = ctx.createLinearGradient(0, cy - tH, 0, rh);
+    grad1.addColorStop(0, lowC[0]); grad1.addColorStop(1, '#0b0f17');
+    ctx.fillStyle = grad1; ctx.strokeStyle = lowC[1]; ctx.lineWidth = 1.4; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(-pitch, rh); ctx.lineTo(-pitch, cy);
+    for (let x = -pitch; x < rw + pitch; x += pitch) { ctx.lineTo(x + pitch * ramp, cy - tH); ctx.lineTo(x + pitch, cy); }
+    ctx.lineTo(rw + pitch, rh); ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    // moving teeth (mirror profile, engaged when lift = 0)
+    // Mating profile = stationary profile slid by `shift` and lifted clear by `lift`.
+    const d = 1.5 + lift;
+    const off = ((-shift % pitch) + pitch) % pitch;
+    const grad2 = ctx.createLinearGradient(0, 0, 0, cy - d);
+    grad2.addColorStop(0, '#0b0f17'); grad2.addColorStop(1, upC[0]);
+    ctx.fillStyle = grad2; ctx.strokeStyle = upC[1];
+    ctx.beginPath(); ctx.moveTo(-pitch * 2, 0); ctx.lineTo(-pitch * 2 + off, cy - d);
+    for (let x = -pitch * 2 + off; x < rw + pitch * 2; x += pitch) { ctx.lineTo(x + pitch * ramp, cy - tH - d); ctx.lineTo(x + pitch, cy - d); }
+    ctx.lineTo(rw + pitch * 2, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    // travel arrow & state text
+    const moving = lift > 1.5;
+    ctx.font = '700 9px ui-monospace, Menlo, monospace'; ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = moving ? '#fde047' : (k.idx === 4 ? '#34d399' : '#94a3b8');
+    ctx.textAlign = 'left';
+    ctx.fillText(moving ? `RADIAL DILATION +${(lift / tH).toFixed(2)} mm` : (k.idx === 4 ? 'LOCKED ON 7° FLANK' : 'SEATED IN ROOT'), 8, rh - 7);
+    ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(226,232,240,.5)';
+    ctx.fillText(`${Math.floor(Math.max(0, teeth))} teeth`, rw - 8, rh - 7);
+    ctx.fillStyle = 'rgba(251,191,36,.55)'; ctx.font = '8px ui-monospace, Menlo, monospace';
+    ctx.fillText(AUTHOR.name, rw - 6, 11);
+  }
+
+  // ===========================================================================
+  // 9. TELEMETRY CHARTS (line + playhead + crosshair tooltip, single axis each)
+  // ===========================================================================
+  const SAMPLES = 360;
+  const series = { depth: [], squeeze: [] };
+  for (let i = 0; i <= SAMPLES; i++) {
+    const k = kinematics(TOTAL * i / SAMPLES);
+    series.depth.push(k.depthMM); series.squeeze.push(k.squeezePct);
+  }
+  const CHARTS = [
+    { el: $('chart-depth'), data: series.depth, max: 240, ticks: [0, 120, 240], unit: 'mm', color: '#22b8d6', label: 'Stab engagement', fmt: v => v.toFixed(0) + ' mm' },
+    { el: $('chart-squeeze'), data: series.squeeze, max: 25, ticks: [0, 12, 24], unit: '%', color: '#f59e0b', label: 'Element squeeze', fmt: v => v.toFixed(1) + ' %' }
+  ];
+  const PAD = { l: 30, r: 8, t: 8, b: 18 };
+  let hoverT = null;
+
+  function drawChart(c, t) {
+    const el = c.el;
+    const w = el.clientWidth, h = el.clientHeight;
+    if (el.width !== Math.round(w * DPR)) { el.width = Math.round(w * DPR); el.height = Math.round(h * DPR); }
+    const ctx = el.getContext('2d');
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    const pw = w - PAD.l - PAD.r, ph = h - PAD.t - PAD.b;
+    const X = tt => PAD.l + (tt / TOTAL) * pw;
+    const Y = v => PAD.t + ph - (v / c.max) * ph;
+
+    // recessive grid + y ticks
+    ctx.font = '500 9.5px ui-monospace, Menlo, monospace'; ctx.fillStyle = '#7c8aa1'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    c.ticks.forEach(v => {
+      ctx.strokeStyle = v === 0 ? '#2c3a52' : 'rgba(44,58,82,.45)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(PAD.l, Math.round(Y(v)) + .5); ctx.lineTo(w - PAD.r, Math.round(Y(v)) + .5); ctx.stroke();
+      ctx.fillText(String(v), PAD.l - 6, Y(v));
+    });
+    // step bands
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    STEPS.forEach((s, i) => {
+      const x0 = X(STEP_START[i]), x1 = X(STEP_START[i] + s.dur);
+      if (i > 0) { ctx.strokeStyle = 'rgba(44,58,82,.6)'; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(Math.round(x0) + .5, PAD.t); ctx.lineTo(Math.round(x0) + .5, PAD.t + ph); ctx.stroke(); ctx.setLineDash([]); }
+      ctx.fillStyle = i === phaseAt(t).idx ? '#b6c2d4' : '#7c8aa1';
+      ctx.fillText(String(i + 1), (x0 + x1) / 2, PAD.t + ph + 5);
+    });
+    // area + line
+    const path = () => { ctx.beginPath(); c.data.forEach((v, i) => { const x = PAD.l + (i / SAMPLES) * pw; i ? ctx.lineTo(x, Y(v)) : ctx.moveTo(x, Y(v)); }); };
+    const g = ctx.createLinearGradient(0, PAD.t, 0, PAD.t + ph);
+    g.addColorStop(0, c.color + '33'); g.addColorStop(1, c.color + '00');
+    path(); ctx.lineTo(PAD.l + pw, Y(0)); ctx.lineTo(PAD.l, Y(0)); ctx.closePath(); ctx.fillStyle = g; ctx.fill();
+    path(); ctx.strokeStyle = c.color; ctx.globalAlpha = 0.35; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke(); ctx.globalAlpha = 1;
+    // progressed portion at full strength
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, X(t), h); ctx.clip();
+    path(); ctx.strokeStyle = c.color; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+    // playhead
+    const v = c.data[Math.round((t / TOTAL) * SAMPLES)];
+    ctx.strokeStyle = 'rgba(241,245,249,.5)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(Math.round(X(t)) + .5, PAD.t); ctx.lineTo(Math.round(X(t)) + .5, PAD.t + ph); ctx.stroke();
+    ctx.fillStyle = c.color; ctx.strokeStyle = '#0c111c'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(X(t), Y(v), 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    // hover crosshair
+    if (hoverT !== null && hoverT.chart === c) {
+      const hx = X(hoverT.t), hv = c.data[Math.round((hoverT.t / TOTAL) * SAMPLES)];
+      ctx.strokeStyle = 'rgba(148,163,184,.55)'; ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(Math.round(hx) + .5, PAD.t); ctx.lineTo(Math.round(hx) + .5, PAD.t + ph); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = '#0c111c'; ctx.strokeStyle = c.color; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(hx, Y(hv), 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
+  }
+
+  const tip = $('tip');
+  CHARTS.forEach(c => {
+    const toT = e => {
+      const r = c.el.getBoundingClientRect();
+      return clamp01((e.clientX - r.left - PAD.l) / (r.width - PAD.l - PAD.r)) * TOTAL;
+    };
+    c.el.addEventListener('pointermove', e => {
+      const t = toT(e);
+      hoverT = { chart: c, t };
+      const v = c.data[Math.round((t / TOTAL) * SAMPLES)];
+      const ph = phaseAt(t);
+      tip.innerHTML = `<div class="tt">t = ${t.toFixed(1)} s · Step ${ph.idx + 1}: ${STEPS[ph.idx].short}</div>${c.label} <b>${c.fmt(v)}</b>`;
+      const tw = tip.offsetWidth;
+      tip.style.left = Math.min(window.innerWidth - tw - 8, e.clientX + 14) + 'px';
+      tip.style.top = (e.clientY - 52) + 'px';
+      tip.classList.add('on');
+    });
+    c.el.addEventListener('pointerleave', () => { hoverT = null; tip.classList.remove('on'); });
+    c.el.addEventListener('click', e => { pause(); seek(toT(e)); });
+  });
+
+  (function buildTable() {
+    let html = '<tr><th>Step</th><th>End t (s)</th><th>Stab (mm)</th><th>Teeth</th><th>Squeeze (%)</th><th>Kelly turns</th></tr>';
+    STEPS.forEach((s, i) => {
+      const k = kinematics(STEP_START[i] + s.dur);
+      html += `<tr><td>${i + 1}. ${s.short}</td><td>${(STEP_START[i] + s.dur).toFixed(1)}</td><td>${k.depthMM.toFixed(0)}</td><td>${k.teeth}</td><td>${k.squeezePct.toFixed(1)}</td><td>${k.turns.toFixed(0)}</td></tr>`;
+    });
+    $('data-table').innerHTML = html;
+  })();
+
+  // ===========================================================================
+  // 10. UI: built once; per-frame updates only write values that changed
+  // ===========================================================================
+  const ui = {};
+  const setText = (el, v) => { if (el._v !== v) { el._v = v; el.textContent = v; } };
+  const setAttr = (el, a, v) => { if (el['_' + a] !== v) { el['_' + a] = v; el.setAttribute(a, v); } };
+
+  function buildSteps() {
+    const c = $('steps');
+    STEPS.forEach((s, i) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'step';
+      b.innerHTML = `<span class="n">STEP ${String(i + 1).padStart(2, '0')}</span><span class="t">${s.short}</span><span class="bar"><i></i></span>`;
+      b.addEventListener('click', () => { pause(); seek(STEP_START[i] + 0.001); state.lastIdx = -1; applyCameraPreset(s.cam); });
+      c.appendChild(b);
+      s.btn = b; s.bar = b.querySelector('i');
+    });
+    const ticks = $('ticks');
+    STEPS.forEach((s, i) => {
+      const sp = document.createElement('span');
+      sp.style.left = (STEP_START[i] / TOTAL * 100) + '%';
+      sp.textContent = String(i + 1);
+      ticks.appendChild(sp);
+    });
+  }
+
+  function buildParts() {
+    const g = $('parts');
+    Object.entries(PART_INFO).forEach(([key, info]) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'part'; b.style.setProperty('--c', info.color);
+      b.setAttribute('aria-pressed', 'false');
+      b.innerHTML = `<i></i><span class="num">${info.num}</span><span>${info.name}</span>`;
+      b.addEventListener('click', () => selectPart(state.selected === key ? null : key));
+      g.appendChild(b);
+      info.btn = b;
+    });
+  }
+
+  function selectPart(key) {
+    state.selected = key;
+    const info = key && PART_INFO[key];
+    $('btn-clear-part').classList.toggle('on', !!key);
+    $('insp-title').textContent = info ? `${info.num} · ${info.name}` : 'All 9 assembly components';
+    $('insp-title').style.color = info ? info.color : '';
+    $('insp-tag').textContent = info ? info.badge : 'L-80 & HNBR';
+    $('insp-desc').textContent = info ? info.desc : DEFAULT_DESC;
+    $('detail').style.setProperty('--c', info ? info.color : 'var(--accent)');
+    Object.values(PART_INFO).forEach(p => p.btn.setAttribute('aria-pressed', String(p === info)));
+  }
+
+  function swapStepText(idx) {
+    const title = $('step-title'), desc = $('step-desc');
+    title.classList.add('out'); desc.classList.add('out');
+    setTimeout(() => {
+      title.textContent = STEPS[idx].title; desc.textContent = STEPS[idx].desc;
+      title.classList.remove('out'); desc.classList.remove('out');
+    }, REDUCED_MOTION ? 0 : 160);
+  }
+
+  function updateUI(k) {
+    if (k.idx !== state.lastIdx) {
+      setText($('step-badge'), `STEP ${k.idx + 1} / ${STEPS.length}`);
+      swapStepText(k.idx);
+      STEPS.forEach((s, i) => { s.btn.classList.toggle('active', i === k.idx); s.btn.classList.toggle('done', i < k.idx); });
+      if (state.playing && state.follow && state.lastIdx !== -1) applyCameraPreset(STEPS[k.idx].cam);
+      state.lastIdx = k.idx;
+    }
+    STEPS.forEach((s, i) => { const p = i < k.idx ? 100 : i > k.idx ? 0 : k.u * 100; s.bar.style.width = p.toFixed(1) + '%'; });
+
+    const pct = state.t / TOTAL * 100;
+    setText($('timeline-time'), `${state.t.toFixed(1)} s · ${Math.round(pct)}%`);
+    const rng = $('rng-timeline');
+    if (!rng._drag) rng.value = Math.round(state.t / TOTAL * 1000);
+    rng.style.setProperty('--p', pct + '%');
+
+    const sealed = k.comp >= 0.85, compressing = k.comp > 0.05;
+    const s = sealed ? 'good' : compressing ? 'warn' : 'idle';
+    setAttr($('seal-pill'), 'data-s', s);
+    setText($('seal-text'), sealed ? 'Annulus sealed · 4000 psi rated' : compressing ? `Compressing HNBR · ${Math.round(clamp01(k.comp) * 100)}%` : 'Annulus open · run-in clearance');
+
+    const blowPill = $('blow-pill');
+    blowPill.classList.toggle('on', k.blow >= 0);
+    if (k.blow >= 0) setText(blowPill, `${k.idx === 2 ? 'HAMMER' : 'PACK-OFF'} BLOW ${k.blow + 1} / ${k.blows}`);
+
+    setText($('inset-title'), k.insetDetail === 'A' ? 'DETAIL A · BUTTRESS P02/P01' : 'DETAIL B · SPLIT RING P07/P03');
+    const rs = $('ratchet-status');
+    const rsTxt = k.idx === 4 ? 'LOCKED 30 MT' : (k.idx === 2 || k.idx === 3) ? 'RATCHETING' : 'READY';
+    setText(rs, rsTxt);
+    rs.style.color = k.idx === 4 ? 'var(--good)' : rsTxt === 'RATCHETING' ? 'var(--warn)' : '';
+
+    setText($('k-depth'), k.depthMM.toFixed(0));
+    setText($('k-teeth'), String(k.teeth));
+    setText($('k-squeeze'), k.squeezePct.toFixed(1));
+    setText($('k-turns'), k.turns.toFixed(1));
+    setText($('k-overpull'), k.overpull > 0.05 ? `overpull +${k.overpull.toFixed(2)} t` : (k.idx === 4 && k.u >= 0.3 ? 'overpull verified ✓' : 'overpull: n/a'));
+    const ks = $('k-seal');
+    setText(ks, sealed ? '✓ SEALED' : compressing ? '◐ SETTING' : '○ OPEN');
+    ks.style.color = sealed ? 'var(--good)' : compressing ? 'var(--warn)' : 'var(--ink-2)';
+
+    $('mark-pos2').style.opacity = (0.2 + 0.8 * k.pos2).toFixed(2);
+    $('mark-pos1').style.transform = `translateY(${(k.pos1Drop * 46).toFixed(1)}px)`;
+  }
+
+  // ===========================================================================
+  // 11. PLAYBACK & CONTROLS
+  // ===========================================================================
+  function setPlaying(p) {
+    state.playing = p;
+    $('ic-play').hidden = p; $('ic-pause').hidden = !p;
+    $('play-text').textContent = p ? 'Pause' : (state.t >= TOTAL ? 'Replay' : 'Play sequence');
+  }
+  const pause = () => setPlaying(false);
+  function seek(t) { state.t = Math.max(0, Math.min(TOTAL, t)); }
+
+  function togglePlay() {
+    if (!state.playing && state.t >= TOTAL - 0.01) { state.t = 0; state.lastIdx = -1; applyCameraPreset('full'); }
+    setPlaying(!state.playing);
+  }
+
+  $('btn-play').addEventListener('click', togglePlay);
+  $('btn-reset').addEventListener('click', () => {
+    pause(); seek(0); state.lastIdx = -1; selectPart(null); applyCameraPreset('full');
+    $('rng-explode').value = 0; $('rng-explode').style.setProperty('--p', '0%'); state.explode = 0;
+    setPlaying(false);
+  });
+  document.querySelectorAll('[data-speed]').forEach(b => b.addEventListener('click', () => {
+    state.speed = parseFloat(b.dataset.speed);
+    document.querySelectorAll('[data-speed]').forEach(o => o.setAttribute('aria-pressed', String(o === b)));
+  }));
+  $('btn-clear-part').addEventListener('click', () => selectPart(null));
+  $('btn-orient').addEventListener('click', e => {
+    state.vertical = !state.vertical;
+    e.currentTarget.textContent = state.vertical ? 'Axis: Vertical' : 'Axis: Horizontal';
+    e.currentTarget.setAttribute('aria-pressed', String(state.vertical));
+    $('orient').innerHTML = state.vertical
+      ? '<b>▲ TOP · Kelly tool</b><span>|</span><em>Landing nipple · BOTTOM ▼</em>'
+      : '<b>◀ TOP · Kelly tool</b><span>|</span><em>Landing nipple · BOTTOM ▶</em>';
+  });
+
+  const rngT = $('rng-timeline');
+  rngT.addEventListener('pointerdown', () => { rngT._drag = true; });
+  window.addEventListener('pointerup', () => { rngT._drag = false; });
+  rngT.addEventListener('input', () => { pause(); seek(rngT.value / 1000 * TOTAL); });
+
+  $('chk-labels').addEventListener('change', e => { state.labels = e.target.checked; });
+  $('chk-forces').addEventListener('change', e => { state.forces = e.target.checked; });
+  $('chk-follow').addEventListener('change', e => { state.follow = e.target.checked; });
+  $('chk-cutaway').addEventListener('change', e => { state.cutaway = e.target.checked; build3DAssembly(); });
+  const rngE = $('rng-explode');
+  rngE.addEventListener('input', () => { state.explode = rngE.value / 100; rngE.style.setProperty('--p', rngE.value + '%'); });
+  document.querySelectorAll('#cam-seg button').forEach(b => b.addEventListener('click', () => applyCameraPreset(b.dataset.cam)));
+
+  window.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' && e.target.type !== 'range' && e.target.type !== 'checkbox') return;
+    const k = phaseAt(state.t).idx;
+    if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+    else if (e.key === 'ArrowRight' && e.target.type !== 'range') { pause(); const n = Math.min(STEPS.length - 1, k + 1); seek(STEP_START[n] + 0.001); applyCameraPreset(STEPS[n].cam); }
+    else if (e.key === 'ArrowLeft' && e.target.type !== 'range') { pause(); const n = Math.max(0, k - 1); seek(STEP_START[n] + 0.001); applyCameraPreset(STEPS[n].cam); }
+    else if (/^[1-4]$/.test(e.key)) applyCameraPreset(CAM_KEYS[+e.key - 1]);
+    else if (e.key === 'Escape') selectPart(null);
+  });
+
+  // Orbit / pan / zoom with inertia, click-to-inspect raycasting
+  const raycaster = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  let downX = 0, downY = 0, lastMoveT = 0;
+
+  canvas3d.addEventListener('contextmenu', e => e.preventDefault());
+  canvas3d.addEventListener('pointerdown', e => {
+    orbit.dragging = true; orbit.panning = e.button === 2 || e.shiftKey;
+    orbit.lastX = downX = e.clientX; orbit.lastY = downY = e.clientY;
+    orbit.vTheta = orbit.vPhi = 0;
+    canvas3d.setPointerCapture(e.pointerId);
+  });
+  canvas3d.addEventListener('pointermove', e => {
+    if (!orbit.dragging) return;
+    const now = performance.now(), dtm = Math.max(1, now - lastMoveT) / 1000; lastMoveT = now;
+    const dx = e.clientX - orbit.lastX, dy = e.clientY - orbit.lastY;
+    orbit.lastX = e.clientX; orbit.lastY = e.clientY;
+    if (orbit.panning) {
+      const s = orbit.dist / 900;
+      const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
+      const up = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
+      orbit.target.addScaledVector(right, -dx * s).addScaledVector(up, dy * s);
+      orbit.goal.target.copy(orbit.target);
+    } else {
+      orbit.theta -= dx * 0.006; orbit.phi -= dy * 0.006;
+      orbit.goal.theta = orbit.theta; orbit.goal.phi = orbit.phi;
+      orbit.vTheta = -dx * 0.006 / dtm * 0.5; orbit.vPhi = -dy * 0.006 / dtm * 0.5;
+    }
+  });
+  canvas3d.addEventListener('pointerup', e => {
+    orbit.dragging = false;
+    if (performance.now() - lastMoveT > 80) orbit.vTheta = orbit.vPhi = 0;
+    if (Math.hypot(e.clientX - downX, e.clientY - downY) < 5 && e.button === 0) {
+      orbit.vTheta = orbit.vPhi = 0;
+      const r = canvas3d.getBoundingClientRect();
+      ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      raycaster.setFromCamera(ndc, camera);
+      const hit = raycaster.intersectObjects(pickables, false).find(h => h.object.material.opacity > 0.5);
+      selectPart(hit ? (state.selected === hit.object.userData.partKey ? null : hit.object.userData.partKey) : null);
+    }
+  });
+  canvas3d.addEventListener('wheel', e => {
+    e.preventDefault();
+    orbit.goal.dist = Math.max(110, Math.min(1100, orbit.goal.dist * Math.exp(e.deltaY * 0.0012)));
+  }, { passive: false });
+
+  function resize() {
+    vw = viewportEl.clientWidth || 800; vh = viewportEl.clientHeight || 450;
+    renderer.setSize(vw, vh, false);
+    camera.aspect = vw / Math.max(1, vh); camera.updateProjectionMatrix();
+    overlay.width = Math.round(vw * DPR); overlay.height = Math.round(vh * DPR);
+    const p = rCanvas.parentElement;
+    rw = p.clientWidth; rh = p.clientHeight;
+    rCanvas.width = Math.round(rw * DPR); rCanvas.height = Math.round(rh * DPR);
+  }
+  new ResizeObserver(resize).observe(viewportEl);
+
+  // ===========================================================================
+  // 12. VIDEO EXPORT (composites WebGL + overlay + inset each frame)
+  // ===========================================================================
+  const rec = { on: false, mr: null, chunks: [], canvas: document.createElement('canvas') };
+  rec.ctx = rec.canvas.getContext('2d');
+
+  function stopRecording() { if (rec.mr && rec.mr.state === 'recording') rec.mr.stop(); }
+  $('btn-record').addEventListener('click', () => {
+    if (rec.on) { stopRecording(); return; }
+    if (!window.MediaRecorder || !rec.canvas.captureStream) { alert('Video recording is not supported in this browser.'); return; }
+    const mime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'].find(m => MediaRecorder.isTypeSupported(m));
+    rec.canvas.width = canvas3d.width; rec.canvas.height = canvas3d.height;
+    rec.chunks = [];
+    try {
+      rec.mr = new MediaRecorder(rec.canvas.captureStream(60), { mimeType: mime, videoBitsPerSecond: 12e6 });
+    } catch (err) { alert('Could not start recording: ' + err.message); return; }
+    rec.mr.ondataavailable = e => { if (e.data && e.data.size) rec.chunks.push(e.data); };
+    rec.mr.onstop = () => {
+      rec.on = false;
+      $('btn-record').classList.remove('recording'); $('rec-text').textContent = 'Record video';
+      const blob = new Blob(rec.chunks, { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = Object.assign(document.createElement('a'), { href: url, download: `OTP_Simulation_${AUTHOR.name.replace(/\W+/g, '_')}.${mime.includes('mp4') ? 'mp4' : 'webm'}` });
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    };
+    seek(0); state.lastIdx = -1; applyCameraPreset('full'); setPlaying(true);
+    rec.on = true;
+    $('btn-record').classList.add('recording'); $('rec-text').textContent = 'Stop & save';
+    rec.mr.start(250);
+  });
+
+  function compositeFrame() {
+    const c = rec.ctx, W = rec.canvas.width, H = rec.canvas.height;
+    const bg = c.createRadialGradient(W / 2, H * 0.4, 0, W / 2, H * 0.4, W * 0.7);
+    bg.addColorStop(0, '#121a2b'); bg.addColorStop(1, '#06080e');
+    c.fillStyle = bg; c.fillRect(0, 0, W, H);
+    c.drawImage(canvas3d, 0, 0);
+    c.drawImage(overlay, 0, 0, W, H);
+    if (vw > 720) {
+      const iw = rCanvas.width, ih = rCanvas.height;
+      c.drawImage(rCanvas, W - iw - 22 * DPR, H - ih - 40 * DPR);
+    }
+  }
+
+  // ===========================================================================
+  // 13. MAIN LOOP: time-based (dt), so speed is identical at 30/60/120 Hz
+  // ===========================================================================
+  let lastFrame = performance.now(), clock = 0;
+  function frame(now) {
+    requestAnimationFrame(frame);
+    const dt = Math.max(0, Math.min(0.05, (now - lastFrame) / 1000)); // rAF time can precede init time
+    lastFrame = now; clock += dt;
+
+    if (state.playing) {
+      state.t += dt * state.speed;
+      if (state.t >= TOTAL) {
+        state.t = TOTAL; setPlaying(false);
+        if (rec.on) setTimeout(stopRecording, 600);
+      }
+    }
+    if (integrity.locked) return;
+    const k = kinematics(state.t);
+
+    // impact camera shake (respecting reduced-motion)
+    if (!REDUCED_MOTION && k.impactAge >= 0 && k.impactAge < 0.05 && state.playing) state.shake = k.idx === 2 ? 2.2 : 1.4;
+    state.shake *= Math.exp(-dt * 14);
+
+    state.explodeView += (state.explode - state.explodeView) * damp(dt, 8);
+    const rz = state.vertical ? -Math.PI / 2 : 0;
+    rootGroup.rotation.z += (rz - rootGroup.rotation.z) * damp(dt, 6);
+    applyMaterialTargets(damp(dt, 10));
+
+    syncTransforms(k);
+    stepCamera(dt);
+    renderer.render(scene, camera);
+    drawOverlay(k, clock, dt);
+    drawRatchet(k);
+    CHARTS.forEach(c => drawChart(c, state.t));
+    updateUI(k);
+    if (rec.on) compositeFrame();
+  }
+
+  // ===========================================================================
+  // 14. INIT
+  // ===========================================================================
+  buildSteps();
+  buildParts();
+  selectPart(null);
+  build3DAssembly();
+  resize();
+  applyCameraPreset('full');
+  // Deep link: #t=12.5 opens the simulator at that moment of the sequence.
+  const deep = /t=([\d.]+)/.exec(location.hash);
+  if (deep) { seek(parseFloat(deep[1])); applyCameraPreset(STEPS[phaseAt(state.t).idx].cam); }
+  if (verifyIntegrity()) {
+    new MutationObserver(() => verifyIntegrity()).observe(document.documentElement, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+    setInterval(verifyIntegrity, 2000);
+    requestAnimationFrame(frame);
+  }
+})();
+</script>
+</body>
+</html>
